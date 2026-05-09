@@ -9,7 +9,7 @@ from shutil import copyfile
 import numpy as np
 import wandb
 
-from .dataset import TIGREDataset
+from .dataset import TIGREDataset, SimDataset
 from .network import (sdf_freq_mlp, att_freq_mlp, sdf_hash_mlp, att_hash_mlp,
                       sdf_freq_mlp_km, sdf_hash_mlp_km,
                       shared_att_freq_mlp, shared_att_hash_mlp,
@@ -61,8 +61,14 @@ class Trainer:
 
         # Dataset
         num_views = cfg["train"].get("num_views", None)
-        train_dset = TIGREDataset(cfg["exp"]["datadir"], cfg["train"]["n_rays"], "train", device, num_views=num_views, n_mask_rays=self.n_mask_rays)
-        self.eval_dset = TIGREDataset(cfg["exp"]["datadir"], cfg["train"]["n_rays"], "val", device) if self.i_eval > 0 else None
+        dataset_type = cfg["exp"].get("dataset_type", "tigre")
+        if dataset_type == "sim":
+            dataset_class = SimDataset
+        else:
+            dataset_class = TIGREDataset
+            
+        train_dset = dataset_class(cfg["exp"]["datadir"], cfg["train"]["n_rays"], "train", device, num_views=num_views, n_mask_rays=self.n_mask_rays)
+        self.eval_dset = dataset_class(cfg["exp"]["datadir"], cfg["train"]["n_rays"], "val", device) if self.i_eval > 0 else None
         self.train_dloader = torch.utils.data.DataLoader(train_dset, batch_size=cfg["train"]["n_batch"], shuffle=True)
         
         self.geo = train_dset.geo
@@ -492,7 +498,6 @@ class Trainer:
             
             # Sample a 3D volume from the SDF
             image_pred, image = self.sample_3d_volume(chunk_size=8192)
-            
             vol_psnr_3d = get_psnr_3d(image_pred, image)
             vol_ssim_3d = get_ssim_3d(image_pred, image)
 
