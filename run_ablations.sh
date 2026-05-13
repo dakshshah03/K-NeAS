@@ -57,7 +57,7 @@ for abl in "${ABL_ARRAY[@]}"; do
         
         # Inject wandb configuration directly into the yaml safely
         # Use python to robustly update yaml configurations
-        uv run -c "
+        uv run python -c "
 import yaml
 with open('$cfg_file', 'r') as f:
     cfg = yaml.safe_load(f)
