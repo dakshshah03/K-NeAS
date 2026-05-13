@@ -1,0 +1,32 @@
+exp:
+  datadir: ./data/foot_50.pickle
+  expdir: ./checkpoints/
+  expname: 1_NeAS
+log:
+  i_eval: 50
+  i_save: 50
+  use_wandb: false
+network:
+  encoding_type: hash
+  feature_dim: 8
+  materials:
+  - {alpha: 3.4, beta: 0.1}
+  - {alpha: 5.5, beta: 3.5}
+  num_materials: 2
+  s_param: 20.0
+  shared_latent: false
+  soft_selector: false
+train:
+  epoch: 1000
+  floater_reg: false
+  lambda_mask: 0.0
+  lambda_reg: 0.01
+  lrate: 0.001
+  lrate_gamma: 0.1
+  n_batch: 1
+  n_mask_rays: 0
+  n_rays: 512
+  n_samples: 320
+  num_views: 50
+  val_chunk_size: 1024
+  val_n_samples: 128

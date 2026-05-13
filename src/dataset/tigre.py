@@ -57,7 +57,7 @@ class TIGREDataset(Dataset):
     TIGRE dataset.
     """
 
-    def __init__(self, path, n_rays=1024, type="train", device="cuda", num_views=None, n_mask_rays=0):
+    def __init__(self, path, n_rays=1024, type="train", device="cuda", num_views=None, n_mask_rays=0, floater_reg=True):
         super().__init__()
 
         with open(path, "rb") as handle:
@@ -67,6 +67,7 @@ class TIGREDataset(Dataset):
         self.type = type
         self.n_rays = n_rays
         self.n_mask_rays = n_mask_rays
+        self.floater_reg = floater_reg
         
         # normalize scene to fit within unit sphere based on neas paper spec
         # The scene should fit within a sphere of radius 1.0
@@ -161,7 +162,10 @@ class TIGREDataset(Dataset):
 
     def __getitem__(self, index):
         if self.type == "train":
-            projs_valid = (self.projs[index] > 0).flatten()
+            if self.floater_reg:
+                projs_valid = (self.projs[index] > 0).flatten()
+            else:
+                projs_valid = (self.projs[index] >= 0).flatten()
             coords_valid = self.coords[projs_valid]
             select_inds = np.random.choice(
                 coords_valid.shape[0], size=[self.n_rays], replace=False

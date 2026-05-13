@@ -78,11 +78,15 @@ def render_image(rays, sdf_model, att_model, s, n_samples, chunk_size=4096, tau=
             sampled_points_flat = sampled_points.reshape(-1, 3)
             
             if is_km:
-                # KM-NeAS: K SDFs + shared attenuation + nested selector
+                from ..network import nested_material_selector, hard_material_selector
                 distances, feature_vector = sdf_model(sampled_points_flat, tau=tau)
                 boundary_values = [surface_boundary_function(d, s) for d in distances]
                 raw_attenuations = att_model(feature_vector)
-                att_coeff = nested_material_selector(boundary_values, raw_attenuations)
+                
+                if soft_selector:
+                    att_coeff = nested_material_selector(boundary_values, raw_attenuations)
+                else:
+                    att_coeff = hard_material_selector(distances, raw_attenuations, boundary_values)
             else:
                 # 1M-NeAS: single SDF and single attenuation
                 sdf_distances, feature_vector = sdf_model(sampled_points_flat, tau=tau)

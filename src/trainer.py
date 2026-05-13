@@ -12,7 +12,7 @@ import wandb
 from .dataset import TIGREDataset, SimDataset
 from .network import (sdf_freq_mlp, att_freq_mlp, sdf_hash_mlp, att_hash_mlp,
                       sdf_freq_mlp_km, sdf_hash_mlp_km,
-                      shared_att_freq_mlp, shared_att_hash_mlp,
+                      shared_att_freq_mlp, shared_att_hash_mlp, IndependentAttenuationMLP, hard_material_selector,
                       nested_material_selector)
 from .render import render_image, surface_boundary_function, volume_render_intensity
 from .utils import get_psnr, get_mse, get_psnr_3d, get_ssim, get_ssim_3d, cast_to_image
@@ -67,7 +67,7 @@ class Trainer:
         else:
             dataset_class = TIGREDataset
             
-        train_dset = dataset_class(cfg["exp"]["datadir"], cfg["train"]["n_rays"], "train", device, num_views=num_views, n_mask_rays=self.n_mask_rays)
+        train_dset = dataset_class(cfg["exp"]["datadir"], cfg["train"]["n_rays"], "train", device, num_views=num_views, n_mask_rays=self.n_mask_rays, floater_reg=cfg["train"].get("floater_reg", True))
         self.eval_dset = dataset_class(cfg["exp"]["datadir"], cfg["train"]["n_rays"], "val", device) if self.i_eval > 0 else None
         self.train_dloader = torch.utils.data.DataLoader(train_dset, batch_size=cfg["train"]["n_batch"], shuffle=True)
         
@@ -93,11 +93,14 @@ class Trainer:
                 self.att_model1 = att_freq_mlp(input_dim=feature_dim, output_dim=1,
                                               alpha=material_configs[0][0], beta=material_configs[0][1]).to(device)
                 self.att_model = None
-            else:  # K >= 2: shared latent space
+            else:  # K >= 2
                 self.sdf_model = sdf_freq_mlp_km(input_dim=3, num_materials=num_materials,
                                                  feature_dim=feature_dim, multires=multires).to(device)
-                self.att_model = shared_att_freq_mlp(input_dim=feature_dim,
-                                                     material_activations=material_configs).to(device)
+                if cfg["network"].get("shared_latent", True):
+                    self.att_model = shared_att_freq_mlp(input_dim=feature_dim,
+                                                         material_activations=material_configs).to(device)
+                else:
+                    self.att_model = IndependentAttenuationMLP(input_dim=feature_dim, material_activations=material_configs, encoding_type='freq').to(device)
                 self.att_model1 = None
                 
         elif encoding_type == "hash":
@@ -115,14 +118,17 @@ class Trainer:
                                               base_resolution=base_resolution, log2_hashmap_size=log2_hashmap_size,
                                               alpha=material_configs[0][0], beta=material_configs[0][1]).to(device)
                 self.att_model = None
-            else:  # K >= 2: shared latent space
+            else:  # K >= 2
                 self.sdf_model = sdf_hash_mlp_km(input_dim=3, num_materials=num_materials,
                                                  feature_dim=feature_dim,
                                                  num_levels=num_levels, level_dim=level_dim,
                                                  base_resolution=base_resolution,
                                                  log2_hashmap_size=log2_hashmap_size).to(device)
-                self.att_model = shared_att_hash_mlp(input_dim=feature_dim,
-                                                     material_activations=material_configs).to(device)
+                if cfg["network"].get("shared_latent", True):
+                    self.att_model = shared_att_hash_mlp(input_dim=feature_dim,
+                                                         material_activations=material_configs).to(device)
+                else:
+                    self.att_model = IndependentAttenuationMLP(input_dim=feature_dim, material_activations=material_configs, encoding_type='hash').to(device)
                 self.att_model1 = None
         else:
             raise ValueError(f"Unknown encoding type: {encoding_type}")
