@@ -34,7 +34,7 @@ def volume_render_intensity(att_coeff, dists):
     return I_hat
 
 
-def render_image(rays, sdf_model, att_model, s, n_samples, chunk_size=4096, tau=None, num_materials=1):
+def render_image(rays, sdf_model, att_model, s, n_samples, chunk_size=4096, tau=None, num_materials=1, soft_selector=True):
     """Render a full image from rays.
     
     Args:
