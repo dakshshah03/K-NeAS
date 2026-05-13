@@ -23,6 +23,7 @@ train:
   lambda_reg: 0.01
   lrate: 0.001
   lrate_gamma: 0.1
+  lrate_step: 500
   n_batch: 1
   n_mask_rays: 128
   n_rays: 512
