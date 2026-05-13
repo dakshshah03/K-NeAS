@@ -57,7 +57,7 @@ for abl in "${ABL_ARRAY[@]}"; do
         
         # Inject wandb configuration directly into the yaml safely
         # Use python to robustly update yaml configurations
-        python3 -c "
+        uv run -c "
 import yaml
 with open('$cfg_file', 'r') as f:
     cfg = yaml.safe_load(f)
@@ -68,7 +68,7 @@ with open('$cfg_file', 'w') as f:
 "
         
         # Run the training script
-        python train.py --config "$cfg_file"
+        uv run train.py --config "$cfg_file"
         
         echo -e "\e[32mAblation $abl completed.\e[0m"
     else
