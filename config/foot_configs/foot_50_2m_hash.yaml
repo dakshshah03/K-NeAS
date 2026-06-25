@@ -2,6 +2,7 @@ exp:
   expname: foot_50_2m_hash
   expdir: ./checkpoints/
   datadir: ./data/foot_50.pickle
+  dataset_type: tigre
 network:
   encoding_type: hash
   num_materials: 2
@@ -28,7 +29,7 @@ train:
   lambda_reg: 0.01
   num_views: 50
   resume: false
-  use_freq_reg: false
+  use_freq_reg: true
   tau_start: 2.0
   warmup_iters: 500
   lambda_mask: 0.1

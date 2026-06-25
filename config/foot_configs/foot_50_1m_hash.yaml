@@ -2,6 +2,7 @@ exp:
   expname: foot_50_1m_hash
   expdir: ./checkpoints/
   datadir: ./data/foot_50.pickle
+  dataset_type: tigre
 network:
   encoding_type: hash
   num_materials: 1

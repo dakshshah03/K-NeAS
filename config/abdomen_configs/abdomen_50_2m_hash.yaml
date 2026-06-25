@@ -28,7 +28,7 @@ train:
   lambda_reg: 0.01
   num_views: 50
   resume: false
-  use_freq_reg: false
+  use_freq_reg: true
   tau_start: 2.0
   warmup_iters: 500
   lambda_mask: 0.1
