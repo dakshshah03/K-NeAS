@@ -3,7 +3,7 @@
 # Default arguments
 GPU="0"
 ABLATIONS="1,2,3,4,5,6"
-WANDB_PROJECT="neas_ablations"
+WANDB_PROJECT="k_neas_ablations"
 WANDB_KEY=""
 
 usage() {

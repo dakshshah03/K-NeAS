@@ -2,6 +2,7 @@ exp:
   expname: jaw_50_2m_hash
   expdir: ./checkpoints/
   datadir: ./data/jaw_50.pickle
+  dataset_type: tigre
 network:
   encoding_type: hash
   num_materials: 2
@@ -37,5 +38,5 @@ log:
   i_eval: 50
   i_save: 50
   use_wandb: true
-  wandb_project: neas_experimental
+  wandb_project: k_neas
   wandb_entity: null

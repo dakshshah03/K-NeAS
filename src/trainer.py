@@ -47,7 +47,7 @@ class Trainer:
         self.warmup_iters = cfg["train"].get("warmup_iters", 500)
         
         self.use_wandb = cfg["log"].get("use_wandb", True)
-        self.wandb_project = cfg["log"].get("wandb_project", "neas_experimental")
+        self.wandb_project = cfg["log"].get("wandb_project", "k_neas")
         self.wandb_entity = cfg["log"].get("wandb_entity", None)
         self.wandb_log_model = cfg["log"].get("wandb_log_model", False)
   

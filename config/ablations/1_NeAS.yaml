@@ -2,6 +2,7 @@ exp:
   datadir: ./data/jaw_50.pickle
   expdir: ./checkpoints/jaw/
   expname: 1_NeAS
+  dataset_type: tigre
 log:
   i_eval: 50
   i_save: 50
