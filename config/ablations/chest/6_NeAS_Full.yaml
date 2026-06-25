@@ -1,0 +1,40 @@
+exp:
+  datadir: ./data/chest_50.pickle
+  dataset_type: tigre
+  expdir: ./checkpoints/chest/
+  expname: chest_6_NeAS_Full
+log:
+  i_eval: 50
+  i_save: 50
+  use_wandb: true
+  wandb_project: neas_ablations
+network:
+  encoding_type: hash
+  feature_dim: 8
+  materials:
+  - alpha: 0.0252
+    beta: 0.0
+  - alpha: 0.0627
+    beta: 0.0252
+  num_materials: 2
+  s_param: 20.0
+  shared_latent: true
+  soft_selector: true
+train:
+  epoch: 1000
+  floater_reg: true
+  lambda_mask: 0.1
+  lambda_reg: 0.01
+  lrate: 0.001
+  lrate_gamma: 0.1
+  lrate_step: 500
+  n_batch: 1
+  n_mask_rays: 128
+  n_rays: 512
+  n_samples: 192
+  num_views: 50
+  tau_start: 2.0
+  use_freq_reg: true
+  val_chunk_size: 1024
+  val_n_samples: 128
+  warmup_iters: 500

@@ -1,13 +1,13 @@
 exp:
-  datadir: ./data/jaw_50.pickle
-  expdir: ./checkpoints/jaw/
-  expname: 2_NeAS_GMM
+  datadir: ./data/foot_50.pickle
+  expdir: ./checkpoints/foot/
+  expname: foot_1_NeAS
   dataset_type: tigre
 log:
   i_eval: 50
   i_save: 50
   use_wandb: true
-  wandb_project: neas_ablations_jaw
+  wandb_project: neas_ablations
 network:
   encoding_type: hash
   feature_dim: 8
@@ -33,5 +33,8 @@ train:
   n_rays: 512
   n_samples: 320
   num_views: 50
+  use_freq_reg: true
+  tau_start: 2.0
+  warmup_iters: 500
   val_chunk_size: 1024
   val_n_samples: 128
