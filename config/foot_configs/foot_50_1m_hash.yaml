@@ -35,7 +35,7 @@ train:
   n_mask_rays: 128
 log:
   i_eval: 50
-  i_save: 50
+  i_save: 200
   use_wandb: true
   wandb_project: k_neas
   wandb_entity: null
