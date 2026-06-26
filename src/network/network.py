@@ -159,25 +159,9 @@ class IndependentAttenuationMLP(nn.Module):
     def __init__(self, input_dim, material_activations, encoding_type='hash'):
         super().__init__()
         self.heads = nn.ModuleList()
-        # Original NeAS used distinct MLPs with 64 hidden units for hash, 256 for freq.
         hidden_dim = 64 if encoding_type == 'hash' else 256
-        num_layers = 2 if encoding_type == 'hash' else 4
-        
-        for alpha, beta in material_activations:
-            mlp = MLPBlock(input_dim, hidden_dim, 1, num_layers)
-            activation = CustomActivation(alpha, beta)
-            self.heads.append(nn.Sequential(mlp, activation))
-            
-    def forward(self, features):
-        return [head(features) for head in self.heads]
-        
-class IndependentAttenuationMLP(nn.Module):
-    """Independent attenuation networks for K materials without shared backbone."""
-    def __init__(self, input_dim, material_activations, encoding_type='hash'):
-        super().__init__()
-        self.heads = nn.ModuleList()
-        hidden_dim = 64 if encoding_type == 'hash' else 256
-        num_layers = 2 if encoding_type == 'hash' else 4
+        # Both shared and separate latent spaces will have exactly 3 linear layers
+        num_layers = 3 if encoding_type == 'hash' else 4
         
         for alpha, beta in material_activations:
             mlp = MLPBlock(input_dim, hidden_dim, 1, num_layers)

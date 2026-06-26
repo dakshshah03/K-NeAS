@@ -37,6 +37,7 @@ from src.network import (
     sdf_hash_mlp, att_hash_mlp,
     sdf_freq_mlp_km, sdf_hash_mlp_km,
     shared_att_freq_mlp, shared_att_hash_mlp,
+    IndependentAttenuationMLP,
 )
 
 
@@ -52,12 +53,20 @@ def _build_models(ckpt, device):
     s_param          = ckpt.get("s", 20.0)
     material_configs = ckpt.get("material_configs", [(3.4, 0.1)] * num_materials)
 
+    cfg = ckpt.get("args", {})
+    shared_latent = cfg.get("network", {}).get("shared_latent", True)
+
     if num_materials >= 2:
         if encoding_type == "freq":
             sdf_model = sdf_freq_mlp_km(input_dim=3, num_materials=num_materials,
                                         feature_dim=feature_dim).to(device)
-            att_model = shared_att_freq_mlp(input_dim=feature_dim,
-                                            material_activations=material_configs).to(device)
+            if shared_latent:
+                att_model = shared_att_freq_mlp(input_dim=feature_dim,
+                                                material_activations=material_configs).to(device)
+            else:
+                att_model = IndependentAttenuationMLP(input_dim=feature_dim,
+                                                      material_activations=material_configs,
+                                                      encoding_type='freq').to(device)
         else:
             num_levels         = ckpt.get("num_levels", 14)
             level_dim          = ckpt.get("level_dim", 2)
@@ -68,8 +77,13 @@ def _build_models(ckpt, device):
                                         num_levels=num_levels, level_dim=level_dim,
                                         base_resolution=base_resolution,
                                         log2_hashmap_size=log2_hashmap_size).to(device)
-            att_model = shared_att_hash_mlp(input_dim=feature_dim,
-                                            material_activations=material_configs).to(device)
+            if shared_latent:
+                att_model = shared_att_hash_mlp(input_dim=feature_dim,
+                                                material_activations=material_configs).to(device)
+            else:
+                att_model = IndependentAttenuationMLP(input_dim=feature_dim,
+                                                      material_activations=material_configs,
+                                                      encoding_type='hash').to(device)
 
         sdf_state = ckpt.get("sdf_model_state_dict", ckpt.get("sdf_state_dict"))
         if sdf_state is not None:
@@ -227,12 +241,14 @@ def main():
 
             # Predicted intensity projection
             rays = val_ds.rays[idx].to(device)  # [H, W, 8]
+            soft_selector = ckpt.get("args", {}).get("network", {}).get("soft_selector", True)
             pred_img = render_image(
                 rays, sdf_model, att_model, s_tensor,
                 args.n_samples,
                 chunk_size=args.chunk_size,
                 tau=None,
                 num_materials=num_materials,
+                soft_selector=soft_selector,
             )
             pred_np = pred_img.cpu().numpy().T  # [H, W]
 

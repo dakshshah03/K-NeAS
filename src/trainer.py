@@ -272,7 +272,7 @@ class Trainer:
             # Attenuation coefficient
             att_coeff = attenuation_values.squeeze(-1) * boundary_values
         else:
-            # KM-NeAS: K SDFs + shared attenuation backbone + nested selector
+            # KM-NeAS: K SDFs + shared attenuation backbone + selector
             distances, feature_vector = self.sdf_model(sampled_points_flat, tau=tau)
             
             # Compute boundary values for all K materials
@@ -281,8 +281,11 @@ class Trainer:
             # Shared attenuation backbone → K raw attenuation heads
             raw_attenuations = self.att_model(feature_vector)
             
-            # Nested K-material priority selector
-            att_coeff = nested_material_selector(bv, raw_attenuations)
+            # Selector choice
+            if self.conf["network"].get("soft_selector", True):
+                att_coeff = nested_material_selector(bv, raw_attenuations)
+            else:
+                att_coeff = hard_material_selector(distances, raw_attenuations, bv)
         
         att_coeff = att_coeff.reshape(batch_size, n_rays, self.n_samples)
         
@@ -356,7 +359,10 @@ class Trainer:
                     dists_m, feat_m = self.sdf_model(pts_m_flat, tau=tau)
                     bv_m = [surface_boundary_function(d, self.s) for d in dists_m]
                     raw_att_m = self.att_model(feat_m)
-                    att_m = nested_material_selector(bv_m, raw_att_m)
+                    if self.conf["network"].get("soft_selector", True):
+                        att_m = nested_material_selector(bv_m, raw_att_m)
+                    else:
+                        att_m = hard_material_selector(dists_m, raw_att_m, bv_m)
 
                 att_m = att_m.reshape(B_m, N_m, self.n_samples)
                 dists_m = z_m[..., 1:] - z_m[..., :-1]
@@ -434,11 +440,14 @@ class Trainer:
                     att_coeff = attenuation_values.squeeze(-1) * boundary_values
                     
                 else:
-                    # KM-NeAS: K SDFs + shared attenuation + nested selector
+                    # KM-NeAS: K SDFs + shared attenuation + selector
                     distances, feature_vector = self.sdf_model(chunk_voxels, tau=None)
                     bv = [surface_boundary_function(d, self.s) for d in distances]
                     raw_attenuations = self.att_model(feature_vector)
-                    att_coeff = nested_material_selector(bv, raw_attenuations)
+                    if self.conf["network"].get("soft_selector", True):
+                        att_coeff = nested_material_selector(bv, raw_attenuations)
+                    else:
+                        att_coeff = hard_material_selector(distances, raw_attenuations, bv)
                 
                 pred_attenuation.append(att_coeff.cpu())
                 
@@ -479,9 +488,10 @@ class Trainer:
             projs_gt = self.eval_dset.projs_intensity[select_ind].to(self.device)
             
             att_for_render = self.att_model1 if self.num_materials == 1 else self.att_model
+            soft_selector = self.conf["network"].get("soft_selector", True)
             img = render_image(rays, self.sdf_model, att_for_render, self.s, 
                              self.val_n_samples, chunk_size=self.val_chunk_size, tau=None, 
-                             num_materials=self.num_materials)
+                             num_materials=self.num_materials, soft_selector=soft_selector)
 
             # Visualization
             plt.figure(figsize=(10, 5))

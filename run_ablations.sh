@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# Default arguments
 GPU="0"
 REGION="chest"
-ABLATIONS="1,2,3,4,5,6"
+ABLATIONS="1,2,3,4"
 WANDB_PROJECT="neas_ablations"
 WANDB_KEY=""
 
@@ -11,7 +10,7 @@ usage() {
     echo "Usage: $0 [options]"
     echo "  -g, --gpu           GPU ID to use (default: 0)"
     echo "  -r, --region        Region to run ablations for: abdomen, chest, foot, or jaw (default: jaw)"
-    echo "  -a, --ablations     Comma-separated list of ablations to run (1-6). e.g., 1,2,6 (default: 1,2,3,4,5,6)"
+    echo "  -a, --ablations     Comma-separated list of ablations to run (1-4). e.g., 1,2,4 (default: 1,2,3,4)"
     echo "  -p, --project       WandB project name (default: neas_ablations)"
     echo "  -k, --key           WandB API key (required, or ensure wandb is already logged in)"
     exit 1
@@ -32,7 +31,6 @@ done
 
 if [ -n "$WANDB_KEY" ]; then
   export WANDB_API_KEY="$WANDB_KEY"
-  # Log in to wandb locally so it's ready
   wandb login "$WANDB_KEY"
 else
   echo -e "\e[33mWarning: WandB API key not provided (-k). Assuming you are already logged in.\e[0m"
@@ -49,12 +47,12 @@ case "$REGION" in
 esac
 
 declare -A config_map
-config_map[1]="1_NeAS.yaml"
-config_map[2]="2_NeAS_GMM.yaml"
-config_map[3]="3_NeAS_GMM_Shared.yaml"
-config_map[4]="4_NeAS_GMM_Soft.yaml"
-config_map[5]="5_NeAS_GMM_Floater.yaml"
-config_map[6]="6_NeAS_Full.yaml"
+if [ "$REGION" = "chest" ]; then
+    config_map[1]="1_KSelector.yaml"
+    config_map[2]="2_KSelector_Floater.yaml"
+    config_map[3]="3_KSelector_Shared.yaml"
+    config_map[4]="4_KNEAS.yaml"
+fi
 
 IFS=',' read -ra ABL_ARRAY <<< "$ABLATIONS"
 
@@ -66,8 +64,6 @@ for abl in "${ABL_ARRAY[@]}"; do
         echo -e "\e[32mRunning Ablation $abl: $cfg_file (Region: $REGION, GPU: $GPU)\e[0m"
         echo -e "\e[34m========================================================\e[0m"
         
-        # Inject wandb configuration directly into the yaml safely
-        # Use python to robustly update yaml configurations
         uv run python -c "
 import yaml
 with open('$cfg_file', 'r') as f:
@@ -78,7 +74,6 @@ with open('$cfg_file', 'w') as f:
     yaml.dump(cfg, f, default_flow_style=False)
 "
         
-        # Run the training script
         uv run train.py --config "$cfg_file"
         
         echo -e "\e[32mAblation $abl completed.\e[0m"

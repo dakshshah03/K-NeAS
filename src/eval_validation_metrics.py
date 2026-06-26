@@ -35,7 +35,8 @@ from src.network import (
     sdf_hash_mlp, att_hash_mlp,
     sdf_freq_mlp_km, sdf_hash_mlp_km,
     shared_att_freq_mlp, shared_att_hash_mlp,
-    SharedAttenuationMLP, nested_material_selector,
+    SharedAttenuationMLP, IndependentAttenuationMLP,
+    nested_material_selector, hard_material_selector,
 )
 from src.utils.util import get_psnr, get_ssim, get_psnr_3d, get_ssim_3d
 
@@ -46,6 +47,9 @@ def _build_models_from_checkpoint(ckpt, device):
     num_materials = ckpt.get('num_materials', 1)
     s_param = ckpt.get('s', 20.0)
 
+    cfg = ckpt.get('args', {})
+    shared_latent = cfg.get('network', {}).get('shared_latent', True)
+
     if num_materials >= 2:
         # KM shared-latent-space architecture
         material_configs = ckpt.get('material_configs', [(3.4, 0.1)] * num_materials)
@@ -53,8 +57,13 @@ def _build_models_from_checkpoint(ckpt, device):
         if encoding_type == 'freq':
             sdf_model = sdf_freq_mlp_km(input_dim=3, num_materials=num_materials,
                                         feature_dim=feature_dim).to(device)
-            att_model = shared_att_freq_mlp(input_dim=feature_dim,
-                                            material_activations=material_configs).to(device)
+            if shared_latent:
+                att_model = shared_att_freq_mlp(input_dim=feature_dim,
+                                                material_activations=material_configs).to(device)
+            else:
+                att_model = IndependentAttenuationMLP(input_dim=feature_dim,
+                                                      material_activations=material_configs,
+                                                      encoding_type='freq').to(device)
         else:
             num_levels = ckpt.get('num_levels', 14)
             level_dim = ckpt.get('level_dim', 2)
@@ -65,8 +74,13 @@ def _build_models_from_checkpoint(ckpt, device):
                                         num_levels=num_levels, level_dim=level_dim,
                                         base_resolution=base_resolution,
                                         log2_hashmap_size=log2_hashmap_size).to(device)
-            att_model = shared_att_hash_mlp(input_dim=feature_dim,
-                                            material_activations=material_configs).to(device)
+            if shared_latent:
+                att_model = shared_att_hash_mlp(input_dim=feature_dim,
+                                                material_activations=material_configs).to(device)
+            else:
+                att_model = IndependentAttenuationMLP(input_dim=feature_dim,
+                                                      material_activations=material_configs,
+                                                      encoding_type='hash').to(device)
 
         sdf_state = ckpt.get('sdf_model_state_dict', ckpt.get('sdf_state_dict'))
         if sdf_state is not None:
@@ -105,7 +119,7 @@ def _build_models_from_checkpoint(ckpt, device):
     return sdf_model, att_model, float(s_param), int(num_materials)
 
 
-def sample_3d_volume_from_models(sdf_model, att_model, s_param, voxels, num_materials, chunk_size=8192, device='cuda'):
+def sample_3d_volume_from_models(sdf_model, att_model, s_param, voxels, num_materials, soft_selector=True, chunk_size=8192, device='cuda'):
     """Sample 3D attenuation volume. Uses 1M path for K=1, shared KM path for K>=2."""
     n1, n2, n3, _ = voxels.shape
     total = n1 * n2 * n3
@@ -124,7 +138,10 @@ def sample_3d_volume_from_models(sdf_model, att_model, s_param, voxels, num_mate
                 distances, feature = sdf_model(chunk, tau=None)
                 bv = [surface_boundary_function(d, s_t) for d in distances]
                 raw_att = att_model(feature)
-                att_coeff = nested_material_selector(bv, raw_att)
+                if soft_selector:
+                    att_coeff = nested_material_selector(bv, raw_att)
+                else:
+                    att_coeff = hard_material_selector(distances, raw_att, bv)
             pred_atten.append(att_coeff.cpu())
 
     pred_atten = torch.cat(pred_atten, dim=0)
@@ -196,9 +213,11 @@ def main():
             rays = val_ds.rays[i].to(device)   # [H, W, 8]
             projs = val_ds.projs[i].to(device) # [H, W]
 
+            soft_selector = ckpt.get('args', {}).get('network', {}).get('soft_selector', True)
             pred_img = render_image(rays, sdf_model, att_model, s_tensor,
                                     args.n_samples, chunk_size=args.chunk_size,
-                                    tau=None, num_materials=num_materials)
+                                    tau=None, num_materials=num_materials,
+                                    soft_selector=soft_selector)
 
             # GT projection is exp(-projs)
             gt_proj = torch.exp(-projs)
@@ -228,7 +247,8 @@ def main():
     if device.startswith('cuda'):
         torch.cuda.empty_cache()
     print("Sampling full 3D volume from model (this may take a while)...")
-    pred_volume = sample_3d_volume_from_models(sdf_model, att_model, s_param, val_ds.voxels, num_materials, chunk_size=args.chunk_size, device=device)
+    soft_selector = ckpt.get('args', {}).get('network', {}).get('soft_selector', True)
+    pred_volume = sample_3d_volume_from_models(sdf_model, att_model, s_param, val_ds.voxels, num_materials, soft_selector=soft_selector, chunk_size=args.chunk_size, device=device)
     gt_volume = val_ds.image.cpu().numpy()
 
     print(f"Before normalization — pred range: [{pred_volume.min():.6f}, {pred_volume.max():.6f}], "

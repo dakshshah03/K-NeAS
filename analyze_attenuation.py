@@ -354,7 +354,7 @@ def analyze_distribution(volume, output_path=None, title="Attenuation Distributi
     print()
 
     # ---- Visualization ----
-    COMPONENT_COLORS = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
+    COLORS = plt.cm.tab10.colors  # type: ignore[attr-defined]
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     fig.suptitle(title, fontsize=14)
@@ -371,20 +371,17 @@ def analyze_distribution(volume, output_path=None, title="Attenuation Distributi
 
     # Panel 2 — non-background histogram + fitted GMM components + boundaries
     axes[0, 1].hist(values_nonzero, bins=150, density=True,
-                    alpha=0.4, color='gray', edgecolor='none', label='data')
+                    alpha=0.4, color='steelblue', edgecolor='none', label='data')
     x_plot = np.linspace(values_nonzero.min(), values_nonzero.max(), 500)
     total_density = np.zeros_like(x_plot)
-    for i, (mu, sigma, w) in enumerate(zip(best['means'], best['stds'], best['weights'])):
+    for i, (mu, sigma, w) in enumerate(
+        zip(best['means'], best['stds'], best['weights'])
+    ):
         comp = w * norm.pdf(x_plot, mu, sigma)
         total_density += comp
-        axes[0, 1].fill_between(
-            x_plot,
-            comp,
-            alpha=0.45,
-            color=COMPONENT_COLORS[i % len(COMPONENT_COLORS)],
-            label=f'M{i+1}: μ={mu:.3f}',
-        )
-    axes[0, 1].plot(x_plot, total_density, color='black', linewidth=1.5, label='mixture')
+        axes[0, 1].fill_between(x_plot, comp, alpha=0.35, color=COLORS[i],
+                                label=f'M{i+1}: μ={mu:.3f}')
+    axes[0, 1].plot(x_plot, total_density, 'k-', linewidth=1.5, label='mixture')
     for j, bnd in enumerate(boundaries[1:-1]):
         axes[0, 1].axvline(bnd, color='black', linestyle=':', linewidth=1.2,
                            label=f'boundary {j+1}→{j+2}: {bnd:.3f}')
