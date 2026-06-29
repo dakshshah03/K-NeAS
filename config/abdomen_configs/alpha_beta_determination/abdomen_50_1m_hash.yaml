@@ -2,6 +2,7 @@ exp:
   expname: abdomen_50_1m_hash_alpha_beta
   expdir: ./checkpoints/
   datadir: ./data/abdomen_50.pickle
+  dataset_type: tigre
 network:
   encoding_type: hash
   num_materials: 1
@@ -35,7 +36,7 @@ train:
   n_mask_rays: 128
 log:
   i_eval: 50
-  i_save: 50
+  i_save: 200
   use_wandb: true
-  wandb_project: neas_experimental
+  wandb_project: k_neas
   wandb_entity: null

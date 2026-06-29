@@ -2,12 +2,14 @@
 
 # Parse CLI args: -g/--gpus "0,1" (leave empty to auto-detect all GPUs)
 GPU_LIST=""
+REPEAT=1
 
 usage() {
-    echo "Usage: $0 [-g gpu_list]"
+    echo "Usage: $0 [-g gpu_list] [-r repeat_count]"
     echo ""
     echo "  -g, --gpus   Comma-separated list of GPU indices to use (e.g. \"0,1,3\")."
     echo "               Omit to auto-detect and use all available GPUs."
+    echo "  -r, --repeat Number of repetitions to run training and report averaged metrics (default: 1)."
     echo "  -h, --help   Show this help message."
     exit 1
 }
@@ -20,6 +22,14 @@ while [ $# -gt 0 ]; do
                 usage
             fi
             GPU_LIST="$2"
+            shift 2
+            ;;
+        -r|--repeat)
+            if [ -z "$2" ]; then
+                echo "Error: Missing argument for $1"
+                usage
+            fi
+            REPEAT="$2"
             shift 2
             ;;
         -h|--help)
@@ -67,25 +77,27 @@ fi
 NUM_GPUS=${#AVAILABLE_GPUS[@]}
 echo "Using $NUM_GPUS CUDA devices: ${AVAILABLE_GPUS[*]}"
 
-export TORCH_CUDA_ARCH_LIST="8.6"
-
 configs=(
-    "./config/foot_configs/foot_50_1m_hash.yaml"
-    "./config/foot_configs/foot_50_2m_hash.yaml"
+    # "./config/chest_configs/alpha_beta_determination/chest_50_1m_hash.yaml"
+    # "./config/jaw_configs/alpha_beta_determination/jaw_50_1m_hash.yaml"
+    # "./config/foot_configs/alpha_beta_determination/foot_50_1m_hash.yaml"
+    # "./config/abdomen_configs/alpha_beta_determination/abdomen_50_1m_hash.yaml"
     "./config/chest_configs/chest_50_1m_hash.yaml"
     "./config/chest_configs/chest_50_2m_hash.yaml"
+    "./config/chest_configs/chest_50_3m_hash.yaml"
+    "./config/chest_configs/chest_50_4m_hash.yaml"
+    "./config/foot_configs/foot_50_1m_hash.yaml"
+    "./config/foot_configs/foot_50_2m_hash.yaml"
+    "./config/foot_configs/foot_50_3m_hash.yaml"
+    "./config/foot_configs/foot_50_4m_hash.yaml"
     "./config/jaw_configs/jaw_50_1m_hash.yaml"
     "./config/jaw_configs/jaw_50_2m_hash.yaml"
+    "./config/jaw_configs/jaw_50_3m_hash.yaml"
+    "./config/jaw_configs/jaw_50_4m_hash.yaml"
     "./config/abdomen_configs/abdomen_50_1m_hash.yaml"
     "./config/abdomen_configs/abdomen_50_2m_hash.yaml"
-    # "./config/foot_configs/foot_50_1m_freq.yaml"
-    # "./config/foot_configs/foot_50_2m_freq.yaml"
-    # "./config/abdomen_configs/abdomen_50_1m_freq.yaml"
-    # "./config/abdomen_configs/abdomen_50_2m_freq.yaml"
-    # "./config/chest_configs/chest_50_1m_freq.yaml"
-    # "./config/chest_configs/chest_50_2m_freq.yaml"
-    # "./config/jaw_configs/jaw_50_1m_freq.yaml"
-    # "./config/jaw_configs/jaw_50_2m_freq.yaml"
+    "./config/abdomen_configs/abdomen_50_3m_hash.yaml"
+    "./config/abdomen_configs/abdomen_50_4m_hash.yaml"
 )
 
 # Log file with timestamp
@@ -120,7 +132,11 @@ run_config() {
     fi
 
     start_time=$(date +%s)
-    uv run python train.py --config "$config" > "$gpu_log_file" 2>&1
+    if [ "$REPEAT" -gt 1 ]; then
+        uv run python train_repeated.py --config "$config" --gpu "$gpu_id" --runs "$REPEAT" > "$gpu_log_file" 2>&1
+    else
+        uv run python train.py --config "$config" > "$gpu_log_file" 2>&1
+    fi
     exit_code=$?
     end_time=$(date +%s)
     duration=$((end_time - start_time))

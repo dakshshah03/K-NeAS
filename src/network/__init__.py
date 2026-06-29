@@ -8,7 +8,9 @@ from .network import (
     shared_att_freq_mlp,
     shared_att_hash_mlp,
     SharedAttenuationMLP,
+    IndependentAttenuationMLP,
     nested_material_selector,
+    hard_material_selector,
     get_network,
     CustomActivation
 )
@@ -23,7 +25,9 @@ __all__ = [
     'shared_att_freq_mlp',
     'shared_att_hash_mlp',
     'SharedAttenuationMLP',
+    'IndependentAttenuationMLP',
     'nested_material_selector',
+    'hard_material_selector',
     'get_network',
     'CustomActivation'
 ]

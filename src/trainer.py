@@ -12,7 +12,7 @@ import wandb
 from .dataset import TIGREDataset, SimDataset
 from .network import (sdf_freq_mlp, att_freq_mlp, sdf_hash_mlp, att_hash_mlp,
                       sdf_freq_mlp_km, sdf_hash_mlp_km,
-                      shared_att_freq_mlp, shared_att_hash_mlp,
+                      shared_att_freq_mlp, shared_att_hash_mlp, IndependentAttenuationMLP, hard_material_selector,
                       nested_material_selector)
 from .render import render_image, surface_boundary_function, volume_render_intensity
 from .utils import get_psnr, get_mse, get_psnr_3d, get_ssim, get_ssim_3d, cast_to_image
@@ -47,7 +47,7 @@ class Trainer:
         self.warmup_iters = cfg["train"].get("warmup_iters", 500)
         
         self.use_wandb = cfg["log"].get("use_wandb", True)
-        self.wandb_project = cfg["log"].get("wandb_project", "neas_experimental")
+        self.wandb_project = cfg["log"].get("wandb_project", "k_neas")
         self.wandb_entity = cfg["log"].get("wandb_entity", None)
         self.wandb_log_model = cfg["log"].get("wandb_log_model", False)
   
@@ -67,7 +67,7 @@ class Trainer:
         else:
             dataset_class = TIGREDataset
             
-        train_dset = dataset_class(cfg["exp"]["datadir"], cfg["train"]["n_rays"], "train", device, num_views=num_views, n_mask_rays=self.n_mask_rays)
+        train_dset = dataset_class(cfg["exp"]["datadir"], cfg["train"]["n_rays"], "train", device, num_views=num_views, n_mask_rays=self.n_mask_rays, floater_reg=cfg["train"].get("floater_reg", True))
         self.eval_dset = dataset_class(cfg["exp"]["datadir"], cfg["train"]["n_rays"], "val", device) if self.i_eval > 0 else None
         self.train_dloader = torch.utils.data.DataLoader(train_dset, batch_size=cfg["train"]["n_batch"], shuffle=True)
         
@@ -93,11 +93,14 @@ class Trainer:
                 self.att_model1 = att_freq_mlp(input_dim=feature_dim, output_dim=1,
                                               alpha=material_configs[0][0], beta=material_configs[0][1]).to(device)
                 self.att_model = None
-            else:  # K >= 2: shared latent space
+            else:  # K >= 2
                 self.sdf_model = sdf_freq_mlp_km(input_dim=3, num_materials=num_materials,
                                                  feature_dim=feature_dim, multires=multires).to(device)
-                self.att_model = shared_att_freq_mlp(input_dim=feature_dim,
-                                                     material_activations=material_configs).to(device)
+                if cfg["network"].get("shared_latent", True):
+                    self.att_model = shared_att_freq_mlp(input_dim=feature_dim,
+                                                         material_activations=material_configs).to(device)
+                else:
+                    self.att_model = IndependentAttenuationMLP(input_dim=feature_dim, material_activations=material_configs, encoding_type='freq').to(device)
                 self.att_model1 = None
                 
         elif encoding_type == "hash":
@@ -115,14 +118,17 @@ class Trainer:
                                               base_resolution=base_resolution, log2_hashmap_size=log2_hashmap_size,
                                               alpha=material_configs[0][0], beta=material_configs[0][1]).to(device)
                 self.att_model = None
-            else:  # K >= 2: shared latent space
+            else:  # K >= 2
                 self.sdf_model = sdf_hash_mlp_km(input_dim=3, num_materials=num_materials,
                                                  feature_dim=feature_dim,
                                                  num_levels=num_levels, level_dim=level_dim,
                                                  base_resolution=base_resolution,
                                                  log2_hashmap_size=log2_hashmap_size).to(device)
-                self.att_model = shared_att_hash_mlp(input_dim=feature_dim,
-                                                     material_activations=material_configs).to(device)
+                if cfg["network"].get("shared_latent", True):
+                    self.att_model = shared_att_hash_mlp(input_dim=feature_dim,
+                                                         material_activations=material_configs).to(device)
+                else:
+                    self.att_model = IndependentAttenuationMLP(input_dim=feature_dim, material_activations=material_configs, encoding_type='hash').to(device)
                 self.att_model1 = None
         else:
             raise ValueError(f"Unknown encoding type: {encoding_type}")
@@ -266,7 +272,7 @@ class Trainer:
             # Attenuation coefficient
             att_coeff = attenuation_values.squeeze(-1) * boundary_values
         else:
-            # KM-NeAS: K SDFs + shared attenuation backbone + nested selector
+            # KM-NeAS: K SDFs + shared attenuation backbone + selector
             distances, feature_vector = self.sdf_model(sampled_points_flat, tau=tau)
             
             # Compute boundary values for all K materials
@@ -275,8 +281,11 @@ class Trainer:
             # Shared attenuation backbone → K raw attenuation heads
             raw_attenuations = self.att_model(feature_vector)
             
-            # Nested K-material priority selector
-            att_coeff = nested_material_selector(bv, raw_attenuations)
+            # Selector choice
+            if self.conf["network"].get("soft_selector", True):
+                att_coeff = nested_material_selector(bv, raw_attenuations)
+            else:
+                att_coeff = hard_material_selector(distances, raw_attenuations, bv)
         
         att_coeff = att_coeff.reshape(batch_size, n_rays, self.n_samples)
         
@@ -350,7 +359,10 @@ class Trainer:
                     dists_m, feat_m = self.sdf_model(pts_m_flat, tau=tau)
                     bv_m = [surface_boundary_function(d, self.s) for d in dists_m]
                     raw_att_m = self.att_model(feat_m)
-                    att_m = nested_material_selector(bv_m, raw_att_m)
+                    if self.conf["network"].get("soft_selector", True):
+                        att_m = nested_material_selector(bv_m, raw_att_m)
+                    else:
+                        att_m = hard_material_selector(dists_m, raw_att_m, bv_m)
 
                 att_m = att_m.reshape(B_m, N_m, self.n_samples)
                 dists_m = z_m[..., 1:] - z_m[..., :-1]
@@ -428,11 +440,14 @@ class Trainer:
                     att_coeff = attenuation_values.squeeze(-1) * boundary_values
                     
                 else:
-                    # KM-NeAS: K SDFs + shared attenuation + nested selector
+                    # KM-NeAS: K SDFs + shared attenuation + selector
                     distances, feature_vector = self.sdf_model(chunk_voxels, tau=None)
                     bv = [surface_boundary_function(d, self.s) for d in distances]
                     raw_attenuations = self.att_model(feature_vector)
-                    att_coeff = nested_material_selector(bv, raw_attenuations)
+                    if self.conf["network"].get("soft_selector", True):
+                        att_coeff = nested_material_selector(bv, raw_attenuations)
+                    else:
+                        att_coeff = hard_material_selector(distances, raw_attenuations, bv)
                 
                 pred_attenuation.append(att_coeff.cpu())
                 
@@ -473,9 +488,10 @@ class Trainer:
             projs_gt = self.eval_dset.projs_intensity[select_ind].to(self.device)
             
             att_for_render = self.att_model1 if self.num_materials == 1 else self.att_model
+            soft_selector = self.conf["network"].get("soft_selector", True)
             img = render_image(rays, self.sdf_model, att_for_render, self.s, 
                              self.val_n_samples, chunk_size=self.val_chunk_size, tau=None, 
-                             num_materials=self.num_materials)
+                             num_materials=self.num_materials, soft_selector=soft_selector)
 
             # Visualization
             plt.figure(figsize=(10, 5))

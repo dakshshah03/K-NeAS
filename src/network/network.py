@@ -153,6 +153,29 @@ def att_hash_mlp(input_dim=8, output_dim=1, num_levels=14, level_dim=2, base_res
     return nn.Sequential(mlp, activation)
 
 
+
+class IndependentAttenuationMLP(nn.Module):
+    """Independent attenuation networks for K materials without shared backbone."""
+    def __init__(self, input_dim, material_activations, encoding_type='hash'):
+        super().__init__()
+        self.heads = nn.ModuleList()
+        hidden_dim = 64 if encoding_type == 'hash' else 256
+        # Both shared and separate latent spaces will have exactly 3 linear layers
+        num_layers = 3 if encoding_type == 'hash' else 4
+        
+        for alpha, beta in material_activations:
+            mlp = MLPBlock(input_dim, hidden_dim, 1, num_layers)
+            activation = CustomActivation(alpha, beta)
+            self.heads.append(nn.Sequential(mlp, activation))
+            
+    @property
+    def num_materials(self):
+        return len(self.heads)
+
+    def forward(self, features):
+        return [head(features) for head in self.heads]
+
+
 class SDFMLPWrapperKM(nn.Module):
     """Wrapper for K-material SDF MLP that returns K distances and features.
 
@@ -251,6 +274,38 @@ class SharedAttenuationMLP(nn.Module):
         """
         shared = self.backbone(features)
         return [head(shared) for head in self.heads]
+
+
+
+def hard_material_selector(distances, raw_attenuations, boundary_values):
+    """Selector function for choosing between two attenuation coefficients using original hard selector.
+    
+    distances: K=2
+    raw_attenuations: K=2 [B, 1]
+    boundary_values: K=2 [B]
+    """
+    d2 = distances[1]
+    # boundary * raw_att. squeeze to [B]
+    mu1 = boundary_values[0] * raw_attenuations[0].squeeze(-1)
+    mu2 = boundary_values[1] * raw_attenuations[1].squeeze(-1)
+    
+    # original logic: torch.where(d2 < 0, mu2, mu1)
+    return torch.where(d2 < 0, mu2, mu1)
+    
+def hard_material_selector(distances, raw_attenuations, boundary_values):
+    """Selector function for choosing between two attenuation coefficients using original hard selector.
+    
+    distances: list of K=2 [B]
+    raw_attenuations: list of K=2 [B, 1]
+    boundary_values: list of K=2 [B]
+    """
+    assert len(distances) == 2, "Hard selector only supports 2 materials"
+    d2 = distances[1]
+    mu1 = boundary_values[0] * raw_attenuations[0].squeeze(-1)
+    mu2 = boundary_values[1] * raw_attenuations[1].squeeze(-1)
+    
+    # Original logic: If inside material 2 (d2 < 0), use mu2. Else use mu1.
+    return torch.where(d2 < 0, mu2, mu1)
 
 
 def nested_material_selector(boundary_values, raw_attenuations):
