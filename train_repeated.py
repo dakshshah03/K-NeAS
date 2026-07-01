@@ -8,6 +8,7 @@ import sys
 import argparse
 import copy
 import gc
+import random
 import numpy as np
 import torch
 
@@ -106,6 +107,7 @@ def main():
     parser.add_argument("--config", required=True, help="Path to YAML config file")
     parser.add_argument("--gpu", type=str, default=None, help="GPU index to use (e.g. '0')")
     parser.add_argument("--runs", type=int, default=3, help="Number of repetitions to train (default: 3)")
+    parser.add_argument("--seed", type=int, default=42, help="Base random seed (default: 42)")
     parser.add_argument("--n_samples", type=int, default=128, help="Number of samples for rendering (default: 128)")
     parser.add_argument("--chunk_size", type=int, default=4096, help="Chunk size for rendering (default: 4096)")
     args = parser.parse_args()
@@ -119,8 +121,14 @@ def main():
     results = []
 
     for run_idx in range(1, args.runs + 1):
+        run_seed = args.seed + run_idx
+        random.seed(run_seed)
+        np.random.seed(run_seed)
+        torch.manual_seed(run_seed)
+        torch.cuda.manual_seed_all(run_seed)
+
         print("\n" + "="*50)
-        print(f"Starting Run {run_idx}/{args.runs} for config: {args.config}")
+        print(f"Starting Run {run_idx}/{args.runs} (Seed: {run_seed}) for config: {args.config}")
         print("="*50 + "\n")
 
         run_cfg = copy.deepcopy(base_cfg)

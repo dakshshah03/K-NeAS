@@ -1,10 +1,11 @@
 exp:
-  expname: abdomen_10_2m_hash
+  expname: brain_sim_1m_hash
   expdir: ./checkpoints/
-  datadir: ./data/abdomen_50.pickle
+  datadir: ./data/simulation_0/
+  dataset_type: sim
 network:
   encoding_type: hash
-  num_materials: 2
+  num_materials: 1
   feature_dim: 8
   multires: 6
   s_param: 20.0
@@ -13,31 +14,29 @@ network:
   base_resolution: 16
   log2_hashmap_size: 19
   materials:
-  - alpha: 0.37
-    beta: 0.15
-  - alpha: 0.59
-    beta: 0.41
+  - {alpha: 10, beta: 0.1}
 train:
-  epoch: 1000
+  epoch: 600
   n_batch: 1
-  n_rays: 512
-  n_samples: 576
-  val_n_samples: 128
+  n_rays: 384
+  n_samples: 128
+  val_n_samples: 64
   val_chunk_size: 1024
   lrate: 0.001
   lrate_gamma: 0.1
   lrate_step: 500
   lambda_reg: 0.01
-  num_views: 10
+  num_views: 60
   resume: false
-  use_freq_reg: true
+  use_freq_reg: false
   tau_start: 2.0
   warmup_iters: 500
   lambda_mask: 0.1
-  n_mask_rays: 128
+  n_mask_rays: 64
+  disable_3d_metrics: true
 log:
-  i_eval: 50
-  i_save: 50
+  i_eval: 200
+  i_save: 200
   use_wandb: true
-  wandb_project: k_neas
+  wandb_project: neas2_brain
   wandb_entity: null

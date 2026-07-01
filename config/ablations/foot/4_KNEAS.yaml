@@ -1,8 +1,8 @@
 exp:
-  datadir: ./data/chest_50.pickle
+  datadir: ./data/foot_50.pickle
   dataset_type: tigre
-  expdir: ./checkpoints/chest/
-  expname: chest_4_KNEAS
+  expdir: ./checkpoints/foot/
+  expname: foot_4_KNEAS
 log:
   i_eval: 50
   i_save: 200
@@ -12,10 +12,10 @@ network:
   encoding_type: hash
   feature_dim: 8
   materials:
-  - alpha: 0.8756
+  - alpha: 0.0685
     beta: 0.0
-  - alpha: 1.0684
-    beta: 0.8756
+  - alpha: 0.1819
+    beta: 0.0685
   num_materials: 2
   s_param: 20.0
   shared_latent: true
@@ -31,7 +31,7 @@ train:
   n_batch: 1
   n_mask_rays: 128
   n_rays: 512
-  n_samples: 192
+  n_samples: 320
   num_views: 50
   tau_start: 2.0
   use_freq_reg: false

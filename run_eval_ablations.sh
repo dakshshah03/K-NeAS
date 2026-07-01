@@ -34,7 +34,7 @@ done
 if [[ -z "${ANATOMY:-}" ]]; then
   echo "Error: missing anatomy argument."
   echo "Usage: $0 [--gpu DEVICE] <anatomy>"
-  echo "Valid anatomies: jaw, chest, abdomen, foot"
+  echo "Valid anatomies: foot"
   exit 1
 fi
 
@@ -42,7 +42,7 @@ ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PY_CMD="python"
 EPOCH=1000
 
-if [[ "$ANATOMY" == "chest" ]]; then
+if [[ "$ANATOMY" == "foot" ]]; then
   ABLATIONS=(
     "1_KSelector"
     "2_KSelector_Floater"

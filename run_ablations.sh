@@ -1,7 +1,7 @@
 #!/bin/bash
 
 GPU="0"
-REGION="chest"
+REGION="foot"
 ABLATIONS="1,2,3,4"
 WANDB_PROJECT="neas_ablations"
 WANDB_KEY=""
@@ -9,7 +9,7 @@ WANDB_KEY=""
 usage() {
     echo "Usage: $0 [options]"
     echo "  -g, --gpu           GPU ID to use (default: 0)"
-    echo "  -r, --region        Region to run ablations for: abdomen, chest, foot, or jaw (default: jaw)"
+    echo "  -r, --region        Region to run ablations for: abdomen, chest, foot, or jaw (default: foot)"
     echo "  -a, --ablations     Comma-separated list of ablations to run (1-4). e.g., 1,2,4 (default: 1,2,3,4)"
     echo "  -p, --project       WandB project name (default: neas_ablations)"
     echo "  -k, --key           WandB API key (required, or ensure wandb is already logged in)"
@@ -47,7 +47,7 @@ case "$REGION" in
 esac
 
 declare -A config_map
-if [ "$REGION" = "chest" ]; then
+if [ "$REGION" = "foot" ]; then
     config_map[1]="1_KSelector.yaml"
     config_map[2]="2_KSelector_Floater.yaml"
     config_map[3]="3_KSelector_Shared.yaml"
