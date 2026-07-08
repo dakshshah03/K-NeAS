@@ -12,10 +12,10 @@ This repository contains the source code for the paper: **$K$-NeAS: Scalable Mul
 
 ## Key Contributions
 
-1. **Shared Latent Backbone**: A shared attenuation MLP backbone with $K$ lightweight per-material prediction heads, enabling cross-material feature sharing and better boundary resolution.
-2. **$K$-Material Soft Selector**: A fully differentiable sequential occupancy filter that scales to arbitrary $K$ materials, replacing NeAS's non-differentiable two-material hard selector.
-3. **GMM Attenuation Bounding**: Unsupervised GMM fit to a converged single-material prior's density histogram to automatically estimate per-material attenuation bounds, eliminating manual tuning.
-4. **Floater Regularization**: Auxiliary loss on zero-attenuation (air) rays during the first 20% of training to suppress spurious empty-space geometry under sparse-view constraints.
+- a soft, fully differentiable sequential occupancy filter, built on a shared attenuation backbone with $K$ lightweight prediction heads, that resolves material membership as a pointwise function of local SDF occupancy for an arbitrary number of materials
+- an unsupervised Gaussian Mixture Model (GMM) that automatically estimates per-material attenuation bounds by sampling the volume of a converged single-material prior, eliminating manual scene-specific tuning
+- a scheduled auxiliary floater regularization that suppresses spurious empty space geometry during the early stages of optimization
+
 
 ---
 
