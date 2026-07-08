@@ -121,6 +121,7 @@ def main():
     results = []
 
     for run_idx in range(1, args.runs + 1):
+        # Reset seeds for this run to ensure independent determinism/stochasticity
         run_seed = args.seed + run_idx
         random.seed(run_seed)
         np.random.seed(run_seed)
