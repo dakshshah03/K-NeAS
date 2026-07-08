@@ -1,27 +1,88 @@
-# NeAS-2: Multi-Material Neural Attenuation Fields
+# $K$-NeAS: Scalable Multi-Material CT Reconstruction Using Neural SDFs
 
-This repository contains the source code for the proposed architecture **K-Material SDFs for Neural Attenuation Fields**.
+This repository contains the source code for the paper: **$K$-NeAS: Scalable Multi-Material CT Reconstruction Using Neural SDFs**.
 
-It builds upon the Neural Attenuation Fields (NeAS) pipeline, extending it to support robust multi-tissue reconstruction from sparse-view CBCT through unified shared latents, continuous differentiable $K$-material soft composition, dataset-driven (GMM) attenuation bounding, and scheduled floater suppression.
+---
+
+## Abstract
+
+> Computed Tomography (CT) carries significant ionizing radiation risks, driving the need for sparse-view reconstruction. Implicit neural representations (INRs) address this by recovering continuous volumetric attenuation fields directly from sparse projections, and recent geometry-aware extensions jointly model surface geometry alongside attenuation to improve fidelity and enable clean tissue segmentation without manual thresholding. However, these methods remain limited by manually tuned attenuation bounds and rigid two-material constraints. This paper proposes $K$-NeAS, a unified and scalable architecture for automated, multi-material surface reconstruction. We replace independent material networks with a shared latent backbone and introduce a fully differentiable $K$-material sequential soft selector to model an arbitrary number of overlapping tissues. To eliminate manual tuning, we automate attenuation bounding using a Gaussian Mixture Model (GMM) and implement a scheduled auxiliary floater loss to mitigate geometric hallucinations common under extreme sparsity. Evaluated across four clinical Cone-Beam CT (CBCT) datasets, $K$-NeAS successfully scales to arbitrary material counts, achieving superior 3D volumetric fidelity at $K=3$ materials on complex multi-tissue regions such as the Abdomen (33.28 dB 3D PSNR vs. 31.40 dB single-material NeAS baseline, a +1.88 dB improvement). Furthermore, our model exhibits enhanced robustness under sparse-sampling conditions, outperforming baseline 3D PSNR by up to 1.17 dB under 5- and 10-view constraints.
+
+---
+
+## Key Contributions & Methodology
+
+$K$-NeAS resolves the scalability and manual configuration limitations of the baseline Neural Attenuation Surfaces (NeAS) through three major contributions:
+
+1. **Shared Latent Backbone**: Instead of using completely independent, disjoint MLPs for each tissue type, $K$-NeAS implements a shared body backbone $\Theta_{\text{att}^{body}}$ coupled to $K$ lightweight prediction heads $\Theta_{\text{att}^k}$. This architecture enables features to be shared across materials, improving boundary resolution for overlapping soft tissues.
+2. **Differentiable $K$-Material Soft Selector**: Introduces a soft, differentiable sequential occupancy filter ($K$-Selector). For a queried point $\mathbf{x}$, the probability weight $w_i(\mathbf{x})$ that it belongs to material $i$ is sequentially discounted by the occupancy of denser materials:
+   $$w_i(\mathbf{x}) = \Omega(d_i(\mathbf{x}), s) \prod^{K-1}_{j = i+1} \left(1 - \Omega(d_j(\mathbf{x}), s)\right)$$
+   The final attenuation is calculated as the expected value under this probability distribution:
+   $$\mu(\mathbf{x}) = \sum^{K-1}_{i=0} \overline{\mu}_i \cdot w_i(\mathbf{x})$$
+3. **Automated GMM Attenuation Bounding**: Replaces manual tuning of the attenuation bounds $\alpha$ and $\beta$ by fitting a Gaussian Mixture Model (GMM) via Expectation-Maximization (EM) on a converged single-material prior's density histogram. This allows the optimal material interval boundaries to be automatically estimated.
+4. **Scheduled Floater Regularization**: Suppresses empty-space geometric noise ("floaters") under sparse view constraints by evaluating an auxiliary intensity loss on zero-attenuation/air rays during the first 20% of training epochs.
+
+---
+
+## Experimental Results
+
+### 1. Quantitative Comparison (Average of 3 Runs)
+
+| Scene | Config | NeAS (2D PSNR) | $K$-NeAS (2D PSNR) | NeAS (2D SSIM) | $K$-NeAS (2D SSIM) | NeAS (3D PSNR) | $K$-NeAS (3D PSNR) | NeAS (3D SSIM) | $K$-NeAS (3D SSIM) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Abdomen** | 1M | 46.744 | 46.850 | 0.992 | 0.993 | 31.399 | 32.648 | 0.820 | 0.845 |
+| | 2M | 47.098 | 47.204 | 0.993 | 0.993 | 31.391 | 32.722 | 0.823 | 0.846 |
+| | 3M | --- | **47.687** | --- | **0.994** | --- | **33.276** | --- | **0.858** |
+| | 4M | --- | 47.346 | --- | **0.994** | --- | 32.916 | --- | 0.850 |
+| **Chest** | 1M | 45.949 | 45.230 | 0.991 | 0.991 | 31.508 | 31.396 | 0.913 | 0.908 |
+| | 2M | **46.609** | 45.672 | 0.992 | 0.992 | 32.171 | 31.784 | 0.918 | 0.915 |
+| | 3M | --- | 46.036 | --- | **0.993** | --- | **32.181** | --- | **0.920** |
+| | 4M | --- | 45.427 | --- | 0.992 | --- | 31.592 | --- | 0.911 |
+| **Foot** | 1M | 42.230 | 42.717 | 0.981 | **0.983** | 31.007 | 31.579 | **0.900** | 0.893 |
+| | 2M | 42.224 | 42.570 | 0.981 | 0.982 | 31.092 | 31.388 | 0.891 | 0.889 |
+| | 3M | --- | **42.800** | --- | **0.983** | --- | **31.603** | --- | 0.889 |
+| | 4M | --- | 42.717 | --- | **0.983** | --- | 31.462 | --- | 0.887 |
+| **Jaw** | 1M | **39.451** | 34.321 | **0.966** | 0.953 | **34.099** | 31.672 | **0.882** | 0.797 |
+| | 2M | 37.472 | 34.366 | 0.963 | 0.956 | 33.514 | 31.828 | 0.832 | 0.808 |
+| | 3M | --- | 34.332 | --- | 0.955 | --- | 31.847 | --- | 0.806 |
+| | 4M | --- | 34.541 | --- | 0.956 | --- | 31.879 | --- | 0.810 |
+
+### 2. Sparse-View Chest Reconstruction Comparison (2-Material Configurations)
+
+| Views | NeAS (2D PSNR) | $K$-NeAS (2D PSNR) | NeAS (2D SSIM) | $K$-NeAS (2D SSIM) | NeAS (3D PSNR) | $K$-NeAS (3D PSNR) | NeAS (3D SSIM) | $K$-NeAS (3D SSIM) |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **5** | 30.473 | 30.813 | 0.899 | 0.913 | 20.596 | **21.767** | 0.502 | 0.554 |
+| **10** | 35.058 | 35.997 | 0.940 | 0.948 | 23.414 | **24.486** | 0.638 | 0.673 |
+| **20** | 40.307 | 40.788 | 0.972 | 0.973 | 26.424 | 27.112 | 0.760 | 0.775 |
+| **50** | **46.609** | 45.672 | 0.992 | 0.992 | 32.171 | 31.784 | 0.918 | 0.915 |
+
+### 3. Component Ablations on Foot Dataset (2-Material Config, Single Run)
+
+| Configuration | 2D PSNR $\uparrow$ | 2D SSIM $\uparrow$ | 3D PSNR $\uparrow$ | 3D SSIM $\uparrow$ |
+| :--- | :---: | :---: | :---: | :---: |
+| $K$-Selector Only | 41.938 | 0.991 | 31.071 | 0.884 |
+| $K$-Selector + Floater Regularization | 43.115 | 0.983 | 31.623 | 0.893 |
+| $K$-Selector + Shared Backbone Body | 42.544 | 0.981 | 31.245 | 0.883 |
+| **$K$-NeAS** (Full Model) | **43.245** | **0.983** | **31.630** | **0.890** |
 
 ---
 
 ## Architectural Ablations
 
-This codebase implements 4 specific architectural configurations (ablations) to isolate the impact of different methodologies:
+This codebase implements the 4 configurations shown in the component ablations above, which are located under `config/ablations/foot/`:
 
 1. **1_KSelector**: K-Material Soft Selector without floater regularization or shared latent space (uses independent networks).
 2. **2_KSelector_Floater**: K-Material Soft Selector with Floater Regularization but independent networks.
 3. **3_KSelector_Shared**: K-Material Soft Selector with Shared Latent Space but without Floater Regularization.
 4. **4_KNEAS** (Full Model): K-Material Soft Selector with both Shared Latent Space and Floater Regularization active simultaneously.
 
-These configurations are defined under `config/ablations/foot/`.
-
 ---
+
 
 ## Data Preparation
 
-Create a `data` directory in the root of the project and place the TIGRE-formatted `.pickle` files inside:
+1. Download the clinical CBCT dataset from the official [NAF Google Drive Folder](https://drive.google.com/drive/folders/1BJYR4a4iHpfFFOAdbEe5O_7Itt1nukJd).
+2. Create a `data` directory in the root of the project and place the TIGRE-formatted `.pickle` files inside:
 ```bash
 mkdir data
 # Place files like data/foot_50.pickle inside
@@ -175,3 +236,30 @@ Samples the prediction volume from a trained 1M-NeAS model checkpoint, fits Gaus
   ```bash
   python analyze_attenuation.py --checkpoint checkpoints/foot_50_1m_hash/checkpoint_epoch_500.pth --config config/foot_configs/foot_50_1m_hash.yaml --output attenuation_analysis_foot.png
   ```
+
+---
+
+## References & Citation
+
+If you use this work or the datasets, please cite the following papers:
+
+```bibtex
+@inproceedings{zha2022naf,
+  title={NAF: Neural Attenuation Fields for Sparse-View CBCT Reconstruction},
+  author={Zha, Ruyi and Zhang, Yanhao and Li, Hongdong},
+  booktitle={International Conference on Medical Image Computing and Computer-Assisted Intervention},
+  pages={442--452},
+  year={2022},
+  organization={Springer}
+}
+
+@misc{zhu2025neas3dreconstructionxray,
+      title={NeAS: 3D Reconstruction from X-ray Images using Neural Attenuation Surface}, 
+      author={Chengrui Zhu and Ryoichi Ishikawa and Masataka Kagesawa and Tomohisa Yuzawa and Toru Watsuji and Takeshi Oishi},
+      year={2025},
+      eprint={2503.07491},
+      archivePrefix={arXiv},
+      primaryClass={eess.IV},
+      url={https://arxiv.org/abs/2503.07491}, 
+}
+```
