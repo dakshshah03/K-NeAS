@@ -10,17 +10,12 @@ This repository contains the source code for the paper: **$K$-NeAS: Scalable Mul
 
 ---
 
-## Key Contributions & Methodology
+## Key Contributions
 
-$K$-NeAS resolves the scalability and manual configuration limitations of the baseline Neural Attenuation Surfaces (NeAS) through three major contributions:
-
-1. **Shared Latent Backbone**: Instead of using completely independent, disjoint MLPs for each tissue type, $K$-NeAS implements a shared body backbone $\Theta_{\text{att}^{body}}$ coupled to $K$ lightweight prediction heads $\Theta_{\text{att}^k}$. This architecture enables features to be shared across materials, improving boundary resolution for overlapping soft tissues.
-2. **Differentiable $K$-Material Soft Selector**: Introduces a soft, differentiable sequential occupancy filter ($K$-Selector). For a queried point $\mathbf{x}$, the probability weight $w_i(\mathbf{x})$ that it belongs to material $i$ is sequentially discounted by the occupancy of denser materials:
-   $$w_i(\mathbf{x}) = \Omega(d_i(\mathbf{x}), s) \prod^{K-1}_{j = i+1} \left(1 - \Omega(d_j(\mathbf{x}), s)\right)$$
-   The final attenuation is calculated as the expected value under this probability distribution:
-   $$\mu(\mathbf{x}) = \sum^{K-1}_{i=0} \overline{\mu}_i \cdot w_i(\mathbf{x})$$
-3. **Automated GMM Attenuation Bounding**: Replaces manual tuning of the attenuation bounds $\alpha$ and $\beta$ by fitting a Gaussian Mixture Model (GMM) via Expectation-Maximization (EM) on a converged single-material prior's density histogram. This allows the optimal material interval boundaries to be automatically estimated.
-4. **Scheduled Floater Regularization**: Suppresses empty-space geometric noise ("floaters") under sparse view constraints by evaluating an auxiliary intensity loss on zero-attenuation/air rays during the first 20% of training epochs.
+1. **Shared Latent Backbone**: A shared attenuation MLP backbone with $K$ lightweight per-material prediction heads, enabling cross-material feature sharing and better boundary resolution.
+2. **$K$-Material Soft Selector**: A fully differentiable sequential occupancy filter that scales to arbitrary $K$ materials, replacing NeAS's non-differentiable two-material hard selector.
+3. **GMM Attenuation Bounding**: Unsupervised GMM fit to a converged single-material prior's density histogram to automatically estimate per-material attenuation bounds, eliminating manual tuning.
+4. **Floater Regularization**: Auxiliary loss on zero-attenuation (air) rays during the first 20% of training to suppress spurious empty-space geometry under sparse-view constraints.
 
 ---
 
