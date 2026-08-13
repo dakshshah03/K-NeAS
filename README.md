@@ -1,6 +1,6 @@
 # $K$-NeAS: Scalable Multi-Material CT Reconstruction Using Neural SDFs
 
-This repository contains the source code for the paper: **$K$-NeAS: Scalable Multi-Material CT Reconstruction Using Neural SDFs**.
+This repository contains the source code for the paper: [**$K$-NeAS: Scalable Multi-Material CT Reconstruction Using Neural SDFs**](https://arxiv.org/abs/2607.14415).
 
 ---
 
